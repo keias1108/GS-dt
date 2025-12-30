@@ -10,6 +10,14 @@ export const GRID_CONFIG = Object.freeze({
   get N() { return this.W * this.H; }
 });
 
+// Tile mode configuration
+export const TILE_CONFIG = Object.freeze({
+  COLS: 8,
+  ROWS: 4,
+  get TOTAL_WIDTH() { return GRID_CONFIG.W * this.COLS; },  // 1760
+  get TOTAL_HEIGHT() { return GRID_CONFIG.H * this.ROWS; }  // 880
+});
+
 // Default simulation parameters
 export const DEFAULT_PARAMS = Object.freeze({
   // Gray-Scott reaction parameters
@@ -31,7 +39,8 @@ export const DEFAULT_PARAMS = Object.freeze({
   // UI parameters
   stepsPerFrame: 6,
   brushRadius: 10,
-  viewMode: 'V'
+  viewMode: 'V',
+  tileMode: false
 });
 
 // LocalStorage key for settings persistence

@@ -37,7 +37,8 @@ export class SettingsManager {
       energyMode: document.getElementById('energySel').value,
       mixAlpha: parseFloat(document.getElementById('mixA').value),
       brushRadius: parseInt(document.getElementById('br').value),
-      viewMode: document.getElementById('viewSel').value
+      viewMode: document.getElementById('viewSel').value,
+      tileMode: document.getElementById('tileModeCheck').checked
     };
   }
 
@@ -89,6 +90,14 @@ export class SettingsManager {
       document.getElementById('dtMax').value = settings.dtMax;
     }
 
+    // Update tile mode
+    if (settings.tileMode !== undefined) {
+      const checkbox = document.getElementById('tileModeCheck');
+      checkbox.checked = settings.tileMode;
+      // Trigger change event to update renderer
+      checkbox.dispatchEvent(new Event('change'));
+    }
+
     // Update all controllers to sync input fields
     this.controllers.forEach(ctrl => ctrl.updateFromValue());
   }
@@ -128,9 +137,9 @@ export class SettingsManager {
 
   /**
    * Download current settings as JSON file and canvas screenshot
-   * @param {HTMLCanvasElement} canvas - The canvas to capture as screenshot
+   * @param {Renderer} renderer - The renderer to capture screenshot from
    */
-  downloadJSON(canvas) {
+  downloadJSON(renderer) {
     const settings = this.getCurrentSettings();
     const timestamp = Date.now();
     const baseFilename = `gray-scott-settings-${timestamp}`;
@@ -145,9 +154,10 @@ export class SettingsManager {
     jsonLink.click();
     URL.revokeObjectURL(jsonUrl);
 
-    // Download canvas screenshot as PNG
-    if (canvas) {
-      canvas.toBlob((blob) => {
+    // Download canvas screenshot as PNG at original resolution
+    if (renderer) {
+      const snapshotCanvas = renderer.captureSnapshot();
+      snapshotCanvas.toBlob((blob) => {
         if (blob) {
           const imgUrl = URL.createObjectURL(blob);
           const imgLink = document.createElement('a');

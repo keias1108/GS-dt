@@ -3,7 +3,7 @@
  * Supports multiple view modes: V (pattern), U, dt (timestep map), E (energy map)
  */
 
-import { GRID_CONFIG } from './config.js';
+import { GRID_CONFIG, TILE_CONFIG } from './config.js';
 
 export class Renderer {
   constructor(canvasId) {
@@ -27,6 +27,9 @@ export class Renderer {
     this.offscreen.height = H;
     this.offscreenCtx = this.offscreen.getContext('2d', { alpha: false });
 
+    // Tile mode state
+    this.tileMode = false;
+
     // Setup resize handling
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -39,6 +42,15 @@ export class Renderer {
     const rect = this.canvas.getBoundingClientRect();
     this.canvas.width = Math.floor(rect.width * this.dpr);
     this.canvas.height = Math.floor(rect.height * this.dpr);
+  }
+
+  /**
+   * Set tile mode (8×4 grid display)
+   * @param {boolean} enabled - Whether to enable tile mode
+   */
+  setTileMode(enabled) {
+    this.tileMode = enabled;
+    this.resize();
   }
 
   /**
@@ -121,11 +133,80 @@ export class Renderer {
     const ch = this.canvas.height;
     this.ctx.clearRect(0, 0, cw, ch);
 
-    // Fit square (centered)
-    const s = Math.min(cw, ch);
-    const ox = (cw - s) / 2;
-    const oy = (ch - s) / 2;
-    this.ctx.drawImage(this.offscreen, 0, 0, this.W, this.H, ox, oy, s, s);
+    if (this.tileMode) {
+      // Tile mode: Draw 8×4 grid of tiles
+      const tileW = this.W;
+      const tileH = this.H;
+      const totalW = TILE_CONFIG.COLS * tileW;
+      const totalH = TILE_CONFIG.ROWS * tileH;
+
+      // Scale to fit canvas while maintaining aspect ratio
+      const scaleX = cw / totalW;
+      const scaleY = ch / totalH;
+      const scale = Math.min(scaleX, scaleY);
+
+      const renderedW = totalW * scale;
+      const renderedH = totalH * scale;
+      const ox = (cw - renderedW) / 2;
+      const oy = (ch - renderedH) / 2;
+
+      // Draw each tile
+      for (let row = 0; row < TILE_CONFIG.ROWS; row++) {
+        for (let col = 0; col < TILE_CONFIG.COLS; col++) {
+          const x = ox + col * tileW * scale;
+          const y = oy + row * tileH * scale;
+          this.ctx.drawImage(
+            this.offscreen,
+            0, 0, tileW, tileH,
+            x, y, tileW * scale, tileH * scale
+          );
+        }
+      }
+    } else {
+      // Normal mode: Fit square (centered)
+      const s = Math.min(cw, ch);
+      const ox = (cw - s) / 2;
+      const oy = (ch - s) / 2;
+      this.ctx.drawImage(this.offscreen, 0, 0, this.W, this.H, ox, oy, s, s);
+    }
+  }
+
+  /**
+   * Capture a snapshot at original resolution (no scaling)
+   * Returns a canvas with the exact pixel dimensions of the simulation
+   * @returns {HTMLCanvasElement} Canvas with original resolution snapshot
+   */
+  captureSnapshot() {
+    const snapshotCanvas = document.createElement('canvas');
+    const ctx = snapshotCanvas.getContext('2d', { alpha: false });
+
+    if (this.tileMode) {
+      // Tile mode: Create 1760×880 canvas with 8×4 grid
+      const tileW = this.W;
+      const tileH = this.H;
+      snapshotCanvas.width = TILE_CONFIG.COLS * tileW;
+      snapshotCanvas.height = TILE_CONFIG.ROWS * tileH;
+
+      ctx.imageSmoothingEnabled = false;
+
+      // Draw each tile at original size
+      for (let row = 0; row < TILE_CONFIG.ROWS; row++) {
+        for (let col = 0; col < TILE_CONFIG.COLS; col++) {
+          const x = col * tileW;
+          const y = row * tileH;
+          ctx.drawImage(this.offscreen, x, y);
+        }
+      }
+    } else {
+      // Normal mode: Create 220×220 canvas
+      snapshotCanvas.width = this.W;
+      snapshotCanvas.height = this.H;
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.offscreen, 0, 0);
+    }
+
+    return snapshotCanvas;
   }
 
   /**
@@ -134,6 +215,9 @@ export class Renderer {
    * @returns {{gx: number, gy: number} | null} Grid coordinates or null if outside
    */
   canvasToGrid(event) {
+    // Disable mouse interaction in tile mode
+    if (this.tileMode) return null;
+
     const rect = this.canvas.getBoundingClientRect();
 
     // Map to centered square view

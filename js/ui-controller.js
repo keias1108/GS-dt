@@ -127,9 +127,11 @@ export class UIController {
     // Initialize select elements with params values
     const energySel = document.getElementById('energySel');
     const viewSel = document.getElementById('viewSel');
+    const tileModeCheck = document.getElementById('tileModeCheck');
 
     energySel.value = this.params.energyMode;
     viewSel.value = this.params.viewMode;
+    tileModeCheck.checked = this.params.tileMode;
 
     energySel.addEventListener('change', () => {
       this.params.energyMode = energySel.value;
@@ -137,6 +139,11 @@ export class UIController {
 
     viewSel.addEventListener('change', () => {
       this.params.viewMode = viewSel.value;
+    });
+
+    tileModeCheck.addEventListener('change', () => {
+      this.params.tileMode = tileModeCheck.checked;
+      this.renderer.setTileMode(tileModeCheck.checked);
     });
   }
 
@@ -201,7 +208,7 @@ export class UIController {
 
     // Settings buttons
     document.getElementById('saveJsonBtn').addEventListener('click', () => {
-      this.settingsManager.downloadJSON(this.renderer.canvas);
+      this.settingsManager.downloadJSON(this.renderer);
     });
 
     document.getElementById('loadJsonBtn').addEventListener('click', () => {
@@ -244,7 +251,7 @@ export class UIController {
       // Alt+S: Save JSON
       if (e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        this.settingsManager.downloadJSON(this.renderer.canvas);
+        this.settingsManager.downloadJSON(this.renderer);
       }
 
       // Space: Run/Pause (only if not focused on input)
@@ -264,6 +271,9 @@ export class UIController {
     const canvas = this.renderer.canvas;
 
     const paintAt = (gx, gy) => {
+      // Disable painting in tile mode
+      if (this.params.tileMode) return;
+
       const mode = document.getElementById('brushSel').value;
       const r = this.params.brushRadius;
       const { U0, V0 } = this.state;
