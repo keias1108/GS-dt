@@ -127,18 +127,37 @@ export class SettingsManager {
   }
 
   /**
-   * Download current settings as JSON file
+   * Download current settings as JSON file and canvas screenshot
+   * @param {HTMLCanvasElement} canvas - The canvas to capture as screenshot
    */
-  downloadJSON() {
+  downloadJSON(canvas) {
     const settings = this.getCurrentSettings();
+    const timestamp = Date.now();
+    const baseFilename = `gray-scott-settings-${timestamp}`;
+
+    // Download JSON file
     const json = JSON.stringify(settings, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `gray-scott-settings-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const jsonBlob = new Blob([json], { type: 'application/json' });
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const jsonLink = document.createElement('a');
+    jsonLink.href = jsonUrl;
+    jsonLink.download = `${baseFilename}.json`;
+    jsonLink.click();
+    URL.revokeObjectURL(jsonUrl);
+
+    // Download canvas screenshot as PNG
+    if (canvas) {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const imgUrl = URL.createObjectURL(blob);
+          const imgLink = document.createElement('a');
+          imgLink.href = imgUrl;
+          imgLink.download = `${baseFilename}.png`;
+          imgLink.click();
+          URL.revokeObjectURL(imgUrl);
+        }
+      }, 'image/png');
+    }
   }
 
   /**

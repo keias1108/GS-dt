@@ -13,6 +13,22 @@ export class GrayScottSimulation {
     this.W = W;
     this.H = H;
     this.N = N;
+
+    // Pre-compute boundary index lookup tables for periodic wrapping
+    // This eliminates 387,200+ modulo operations per step and fixes wrap() bug
+    this.xWrapMinus = new Int32Array(this.W);
+    this.xWrapPlus = new Int32Array(this.W);
+    this.yWrapMinus = new Int32Array(this.H);
+    this.yWrapPlus = new Int32Array(this.H);
+
+    for (let x = 0; x < this.W; x++) {
+      this.xWrapMinus[x] = (x - 1 + this.W) % this.W;  // Properly handles x=0 case
+      this.xWrapPlus[x] = (x + 1) % this.W;
+    }
+    for (let y = 0; y < this.H; y++) {
+      this.yWrapMinus[y] = (y - 1 + this.H) % this.H;  // Properly handles y=0 case
+      this.yWrapPlus[y] = (y + 1) % this.H;
+    }
   }
 
   /**
@@ -41,10 +57,11 @@ export class GrayScottSimulation {
    * ∇²A = A(x-1,y) + A(x+1,y) + A(x,y-1) + A(x,y+1) - 4*A(x,y)
    */
   laplacian(A, x, y) {
-    const xm = this.wrap(x - 1, this.W);
-    const xp = this.wrap(x + 1, this.W);
-    const ym = this.wrap(y - 1, this.H);
-    const yp = this.wrap(y + 1, this.H);
+    // Use pre-computed lookup tables instead of wrap() calls
+    const xm = this.xWrapMinus[x];
+    const xp = this.xWrapPlus[x];
+    const ym = this.yWrapMinus[y];
+    const yp = this.yWrapPlus[y];
 
     const c = A[this.idx(x, y)];
     const l = A[this.idx(xm, y)];
@@ -60,10 +77,11 @@ export class GrayScottSimulation {
    * Uses central differences for gradient
    */
   gradEnergy(U, V, x, y) {
-    const xm = this.wrap(x - 1, this.W);
-    const xp = this.wrap(x + 1, this.W);
-    const ym = this.wrap(y - 1, this.H);
-    const yp = this.wrap(y + 1, this.H);
+    // Use pre-computed lookup tables instead of wrap() calls
+    const xm = this.xWrapMinus[x];
+    const xp = this.xWrapPlus[x];
+    const ym = this.yWrapMinus[y];
+    const yp = this.yWrapPlus[y];
 
     const ux = 0.5 * (U[this.idx(xp, y)] - U[this.idx(xm, y)]);
     const uy = 0.5 * (U[this.idx(x, yp)] - U[this.idx(x, ym)]);
@@ -100,23 +118,22 @@ export class GrayScottSimulation {
         }
       }
     } else if (energyMode === 'mix') {
-      // Mix of react + grad
-      // First compute react component in Eraw
-      for (let i = 0; i < N; i++) {
-        const u = U[i];
-        const v = V[i];
-        Eraw[i] = u * v * v;
-      }
-      // Compute grad component in dtMap (temporary reuse)
+      // Mix of react + grad (fused single loop for better cache locality)
+      const a = mixAlpha;
+      const ia = 1 - a;
+
+      // Single fused loop: compute both metrics and mix immediately
       for (let y = 0; y < this.H; y++) {
         for (let x = 0; x < this.W; x++) {
-          dtMap[this.idx(x, y)] = this.gradEnergy(U, V, x, y);
+          const i = this.idx(x, y);
+          const u = U[i];
+          const v = V[i];
+
+          const reactEnergy = u * v * v;
+          const gradEnergy = this.gradEnergy(U, V, x, y);
+
+          Eraw[i] = a * reactEnergy + ia * gradEnergy;
         }
-      }
-      // Mix both components
-      const a = mixAlpha;
-      for (let i = 0; i < N; i++) {
-        Eraw[i] = a * Eraw[i] + (1 - a) * dtMap[i];
       }
     }
 
@@ -139,16 +156,16 @@ export class GrayScottSimulation {
     const { Eema, dtMap } = this.state;
     const N = this.N;
 
-    // Find max energy for normalization
-    let eMax = 0;
-    for (let i = 0; i < N; i++) {
-      eMax = Math.max(eMax, Eema[i]);
+    // Find max energy for normalization (optimized with conditional instead of Math.max)
+    let eMax = Eema[0];
+    for (let i = 1; i < N; i++) {
+      if (Eema[i] > eMax) eMax = Eema[i];
     }
 
     // Avoid division by zero
     const scale = eMax > 1e-8 ? 1 / eMax : 1.0;
     const span = dtMax - dtMin;
-    const T = Math.max(1e-6, tempScale);
+    const T = tempScale > 1e-6 ? tempScale : 1e-6;
 
     // Map energy to timestep
     for (let i = 0; i < N; i++) {

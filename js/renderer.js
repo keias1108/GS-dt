@@ -21,6 +21,12 @@ export class Renderer {
     this.img = this.ctx.createImageData(W, H);
     this.pix = this.img.data;
 
+    // Persistent offscreen canvas (avoid creating new canvas every frame)
+    this.offscreen = document.createElement('canvas');
+    this.offscreen.width = W;
+    this.offscreen.height = H;
+    this.offscreenCtx = this.offscreen.getContext('2d', { alpha: false });
+
     // Setup resize handling
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -51,23 +57,29 @@ export class Renderer {
     const { U0, V0, dtMap, Eema } = state;
     const N = this.N;
 
-    // For dt and E views, find min/max for normalization
-    let vMin = 1e9;
-    let vMax = -1e9;
+    // For dt and E views, find min/max for normalization (optimized with conditionals)
+    let vMin = 0;
+    let vMax = 1;
 
     if (viewMode === 'dt') {
-      for (let i = 0; i < N; i++) {
-        vMin = Math.min(vMin, dtMap[i]);
-        vMax = Math.max(vMax, dtMap[i]);
+      vMin = dtMap[0];
+      vMax = dtMap[0];
+      for (let i = 1; i < N; i++) {
+        const val = dtMap[i];
+        if (val < vMin) vMin = val;
+        if (val > vMax) vMax = val;
       }
       if (!(vMax > vMin)) {
         vMin = 0;
         vMax = 1;
       }
     } else if (viewMode === 'E') {
-      for (let i = 0; i < N; i++) {
-        vMin = Math.min(vMin, Eema[i]);
-        vMax = Math.max(vMax, Eema[i]);
+      vMin = Eema[0];
+      vMax = Eema[0];
+      for (let i = 1; i < N; i++) {
+        const val = Eema[i];
+        if (val < vMin) vMin = val;
+        if (val > vMax) vMax = val;
       }
       if (!(vMax > vMin)) {
         vMin = 0;
@@ -101,10 +113,8 @@ export class Renderer {
     }
 
     // Draw scaled to canvas with nearest-neighbor interpolation
-    const off = document.createElement('canvas');
-    off.width = this.W;
-    off.height = this.H;
-    off.getContext('2d').putImageData(this.img, 0, 0);
+    // Reuse persistent offscreen canvas (no per-frame allocation)
+    this.offscreenCtx.putImageData(this.img, 0, 0);
 
     this.ctx.imageSmoothingEnabled = false;
     const cw = this.canvas.width;
@@ -115,7 +125,7 @@ export class Renderer {
     const s = Math.min(cw, ch);
     const ox = (cw - s) / 2;
     const oy = (ch - s) / 2;
-    this.ctx.drawImage(off, 0, 0, this.W, this.H, ox, oy, s, s);
+    this.ctx.drawImage(this.offscreen, 0, 0, this.W, this.H, ox, oy, s, s);
   }
 
   /**

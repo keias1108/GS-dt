@@ -89,6 +89,7 @@ export class ParameterController {
   updateFromValue() {
     const value = parseFloat(this.slider.value);
     this.input.value = this.formatter(value);
+    this.onChange(value);
   }
 
   /**

@@ -45,6 +45,17 @@ export class UIController {
    * Initialize parameter controllers for sliders
    */
   initializeParameterControllers() {
+    // Initialize sliders with params values before creating controllers
+    document.getElementById('du').value = this.params.Du;
+    document.getElementById('dv').value = this.params.Dv;
+    document.getElementById('F').value = this.params.F;
+    document.getElementById('k').value = this.params.K;
+    document.getElementById('temp').value = this.params.tempScale;
+    document.getElementById('ema').value = this.params.emaAlpha;
+    document.getElementById('spf').value = this.params.stepsPerFrame;
+    document.getElementById('mixA').value = this.params.mixAlpha;
+    document.getElementById('br').value = this.params.brushRadius;
+
     new ParameterController(
       'du', 'duTxt',
       (v) => { this.params.Du = v; },
@@ -113,11 +124,20 @@ export class UIController {
    * Initialize view mode and energy mode controls
    */
   initializeViewAndEnergyControls() {
+    // Initialize select elements with params values
     const energySel = document.getElementById('energySel');
+    const viewSel = document.getElementById('viewSel');
+
+    energySel.value = this.params.energyMode;
+    viewSel.value = this.params.viewMode;
+
     energySel.addEventListener('change', () => {
       this.params.energyMode = energySel.value;
     });
-    this.params.energyMode = energySel.value;
+
+    viewSel.addEventListener('change', () => {
+      this.params.viewMode = viewSel.value;
+    });
   }
 
   /**
@@ -126,6 +146,10 @@ export class UIController {
   initializeDtBounds() {
     const dtMinEl = document.getElementById('dtMin');
     const dtMaxEl = document.getElementById('dtMax');
+
+    // Initialize with params values
+    dtMinEl.value = this.params.dtMin;
+    dtMaxEl.value = this.params.dtMax;
 
     const updateDtBounds = () => {
       let dtMin = parseFloat(dtMinEl.value);
@@ -144,7 +168,6 @@ export class UIController {
 
     dtMinEl.addEventListener('change', updateDtBounds);
     dtMaxEl.addEventListener('change', updateDtBounds);
-    updateDtBounds();
   }
 
   /**
@@ -178,7 +201,7 @@ export class UIController {
 
     // Settings buttons
     document.getElementById('saveJsonBtn').addEventListener('click', () => {
-      this.settingsManager.downloadJSON();
+      this.settingsManager.downloadJSON(this.renderer.canvas);
     });
 
     document.getElementById('loadJsonBtn').addEventListener('click', () => {
@@ -221,7 +244,7 @@ export class UIController {
       // Alt+S: Save JSON
       if (e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        this.settingsManager.downloadJSON();
+        this.settingsManager.downloadJSON(this.renderer.canvas);
       }
 
       // Space: Run/Pause (only if not focused on input)
