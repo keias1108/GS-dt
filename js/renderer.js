@@ -31,8 +31,9 @@ export class Renderer {
     this.tileMode = false;
 
     // Setup resize handling
+    this.resizeHandler = () => this.resize();
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('resize', this.resizeHandler);
   }
 
   /**
@@ -51,6 +52,13 @@ export class Renderer {
   setTileMode(enabled) {
     this.tileMode = enabled;
     this.resize();
+  }
+
+  /**
+   * Cleanup method to remove event listeners
+   */
+  dispose() {
+    window.removeEventListener('resize', this.resizeHandler);
   }
 
   /**
@@ -108,9 +116,11 @@ export class Renderer {
       } else if (viewMode === 'U') {
         v = U0[i];
       } else if (viewMode === 'dt') {
-        v = (dtMap[i] - vMin) / (vMax - vMin);
+        const range = vMax - vMin;
+        v = range > 1e-10 ? (dtMap[i] - vMin) / range : 0;
       } else if (viewMode === 'E') {
-        v = (Eema[i] - vMin) / (vMax - vMin);
+        const range = vMax - vMin;
+        v = range > 1e-10 ? (Eema[i] - vMin) / range : 0;
       }
 
       v = this.clamp(v, 0, 1);

@@ -24,19 +24,31 @@ export class SettingsManager {
    * Reads directly from DOM to ensure we get the current displayed values
    */
   getCurrentSettings() {
+    // Helper to parse and validate float values
+    const parseAndValidate = (id, defaultVal) => {
+      const val = parseFloat(document.getElementById(id).value);
+      return isFinite(val) ? val : defaultVal;
+    };
+
+    // Helper to parse and validate integer values
+    const parseIntAndValidate = (id, defaultVal) => {
+      const val = parseInt(document.getElementById(id).value, 10);
+      return isFinite(val) ? val : defaultVal;
+    };
+
     return {
-      Du: parseFloat(document.getElementById('du').value),
-      Dv: parseFloat(document.getElementById('dv').value),
-      F: parseFloat(document.getElementById('F').value),
-      K: parseFloat(document.getElementById('k').value),
-      dtMin: parseFloat(document.getElementById('dtMin').value),
-      dtMax: parseFloat(document.getElementById('dtMax').value),
-      tempScale: parseFloat(document.getElementById('temp').value),
-      emaAlpha: parseFloat(document.getElementById('ema').value),
-      stepsPerFrame: parseInt(document.getElementById('spf').value),
+      Du: parseAndValidate('du', 0.16),
+      Dv: parseAndValidate('dv', 0.08),
+      F: parseAndValidate('F', 0.035),
+      K: parseAndValidate('k', 0.06),
+      dtMin: parseAndValidate('dtMin', 0.2),
+      dtMax: parseAndValidate('dtMax', 1.5),
+      tempScale: parseAndValidate('temp', 0.08),
+      emaAlpha: parseAndValidate('ema', 0.8),
+      stepsPerFrame: parseIntAndValidate('spf', 6),
       energyMode: document.getElementById('energySel').value,
-      mixAlpha: parseFloat(document.getElementById('mixA').value),
-      brushRadius: parseInt(document.getElementById('br').value),
+      mixAlpha: parseAndValidate('mixA', 0.5),
+      brushRadius: parseIntAndValidate('br', 10),
       viewMode: document.getElementById('viewSel').value,
       tileMode: document.getElementById('tileModeCheck').checked
     };
@@ -189,11 +201,17 @@ export class SettingsManager {
   }
 
   /**
-   * Reset all parameters to default values
+   * Reset all parameters to default values and clear localStorage
    */
   resetToDefaults() {
-    if (confirm('Reset all parameters to default values?')) {
+    if (confirm('Reset all parameters to default values? This will also clear saved settings from localStorage.')) {
+      // Clear localStorage
+      localStorage.removeItem(this.storageKey);
+
+      // Apply default settings
       this.applySettings(this.defaults);
+
+      alert('Settings reset to defaults and localStorage cleared!');
     }
   }
 }

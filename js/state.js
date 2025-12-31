@@ -46,9 +46,10 @@ export class SimulationState {
 
   /**
    * Utility: Wrap coordinate with periodic boundary
+   * Properly handles negative values
    */
   wrap(x, m) {
-    return (x + m) % m;
+    return ((x % m) + m) % m;
   }
 
   /**

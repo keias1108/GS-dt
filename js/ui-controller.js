@@ -22,6 +22,9 @@ export class UIController {
     // Painting state
     this.painting = false;
 
+    // Cache frequently accessed DOM elements
+    this.viewSelElement = document.getElementById('viewSel');
+
     // Initialize all UI components
     this.initializeParameterControllers();
     this.initializeViewAndEnergyControls();
@@ -169,6 +172,15 @@ export class UIController {
       dtMin = this.clamp(dtMin, 0.001, 10);
       dtMax = this.clamp(dtMax, 0.001, 10);
 
+      // Ensure dtMin < dtMax
+      if (dtMin >= dtMax) {
+        const temp = dtMin;
+        dtMin = Math.min(temp, dtMax - 0.1);
+        dtMax = Math.max(temp + 0.1, dtMax);
+        dtMinEl.value = dtMin.toFixed(2);
+        dtMaxEl.value = dtMax.toFixed(2);
+      }
+
       this.params.dtMin = dtMin;
       this.params.dtMax = dtMax;
     };
@@ -193,7 +205,7 @@ export class UIController {
       for (let i = 0; i < this.params.stepsPerFrame; i++) {
         this.simulation.stepOnce();
       }
-      this.renderer.render(this.state, document.getElementById('viewSel').value);
+      this.renderer.render(this.state, this.viewSelElement.value);
     });
 
     // Seed button
@@ -297,7 +309,7 @@ export class UIController {
             U0[i] = 0.0;
           } else if (mode === 'U') {
             U0[i] = 1.0;
-            V0[i] = 0.0;
+            // V0[i] remains unchanged
           } else if (mode === 'UV') {
             U0[i] = 0.5;
             V0[i] = 0.5;
@@ -349,14 +361,11 @@ export class UIController {
         for (let i = 0; i < this.params.stepsPerFrame; i++) {
           this.simulation.stepOnce();
         }
-      } else {
-        // Still update dtMap/energy when paused so dt/E view isn't stale
-        this.simulation.computeEnergy(this.state.U0, this.state.V0);
-        this.simulation.buildDtMap();
       }
+      // When paused, don't update energy/dt to prevent visual drift
 
       // Render current state
-      const viewMode = document.getElementById('viewSel').value;
+      const viewMode = this.viewSelElement.value;
       this.renderer.render(this.state, viewMode);
 
       requestAnimationFrame(tick);
